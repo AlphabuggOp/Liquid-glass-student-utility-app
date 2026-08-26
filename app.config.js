@@ -1,0 +1,37 @@
+// app.config.js
+export default {
+  expo: {
+    name: "Liquid Glass",
+    slug: "liquid-glass",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/icon.png",
+    userInterfaceStyle: "automatic",
+    splash: {
+      image: "./assets/splash.png",
+      resizeMode: "contain",
+      backgroundColor: "#000000"
+    },
+    assetBundlePatterns: ["**/*"],
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: "com.liquidglass.app",
+      requireFullScreen: true
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#000000"
+      },
+      package: "com.liquidglass.app"
+    },
+    web: {
+      bundler: "metro",
+      output: "static",
+      favicon: "./assets/favicon.png"
+    },
+    plugins: [
+      "expo-notifications"
+    ]
+  }
+};
