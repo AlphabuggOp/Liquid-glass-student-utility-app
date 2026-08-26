@@ -1,22 +1,7 @@
 // src/store/index.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { MMKV } from 'react-native-mmkv';
-
-const storage = new MMKV();
-
-const mmkvStorage = {
-  getItem: (name: string) => {
-    const value = storage.getString(name);
-    return value ?? null;
-  },
-  setItem: (name: string, value: string) => {
-    storage.set(name, value);
-  },
-  removeItem: (name: string) => {
-    storage.delete(name);
-  },
-};
+import { appStorage } from './storage';
 
 // Note types
 export interface Note {
@@ -35,42 +20,33 @@ export interface Alarm {
   hour: number;
   minute: number;
   label: string;
-  repeatDays: number[]; // 0-6 (Sun-Sat)
+  repeatDays: number[];
   enabled: boolean;
   sound: string;
 }
 
 export interface TimerPreset {
   id: string;
-  duration: number; // seconds
+  duration: number;
   label: string;
 }
 
 interface AppState {
-  // Notes
   notes: Note[];
   addNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
   pinNote: (id: string) => void;
-
-  // Search
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-
-  // Clock
-  worldClocks: string[]; // timezone identifiers
+  worldClocks: string[];
   addWorldClock: (timezone: string) => void;
   removeWorldClock: (timezone: string) => void;
-
-  // Alarms
   alarms: Alarm[];
   addAlarm: (alarm: Omit<Alarm, 'id'>) => void;
   updateAlarm: (id: string, updates: Partial<Alarm>) => void;
   deleteAlarm: (id: string) => void;
   toggleAlarm: (id: string) => void;
-
-  // Timer
   timerPresets: TimerPreset[];
   activeTimerDuration: number;
   activeTimerRemaining: number;
@@ -104,122 +80,35 @@ export const useAppStore = create<AppState>()(
       activeTimerRemaining: 0,
       isTimerRunning: false,
       timerLabel: '',
-
       addNote: (note) => {
-        const newNote: Note = {
-          ...note,
-          id: Date.now().toString(),
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
+        const now = Date.now();
+        const newNote: Note = { ...note, id: now.toString(), createdAt: now, updatedAt: now };
         set((state) => ({ notes: [newNote, ...state.notes] }));
       },
-
-      updateNote: (id, updates) => {
-        set((state) => ({
-          notes: state.notes.map((n) =>
-            n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n
-          ),
-        }));
-      },
-
-      deleteNote: (id) => {
-        set((state) => ({
-          notes: state.notes.filter((n) => n.id !== id),
-        }));
-      },
-
-      pinNote: (id) => {
-        set((state) => ({
-          notes: state.notes.map((n) =>
-            n.id === id ? { ...n, pinned: !n.pinned } : n
-          ),
-        }));
-      },
-
+      updateNote: (id, updates) => set((state) => ({ notes: state.notes.map((n) => n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n) })),
+      deleteNote: (id) => set((state) => ({ notes: state.notes.filter((n) => n.id !== id) })),
+      pinNote: (id) => set((state) => ({ notes: state.notes.map((n) => n.id === id ? { ...n, pinned: !n.pinned } : n) })),
       setSearchQuery: (query) => set({ searchQuery: query }),
-
-      addWorldClock: (timezone) => {
-        set((state) => ({
-          worldClocks: [...state.worldClocks, timezone],
-        }));
-      },
-
-      removeWorldClock: (timezone) => {
-        set((state) => ({
-          worldClocks: state.worldClocks.filter((t) => t !== timezone),
-        }));
-      },
-
-      addAlarm: (alarm) => {
-        const newAlarm: Alarm = {
-          ...alarm,
-          id: Date.now().toString(),
-        };
-        set((state) => ({ alarms: [...state.alarms, newAlarm] }));
-      },
-
-      updateAlarm: (id, updates) => {
-        set((state) => ({
-          alarms: state.alarms.map((a) =>
-            a.id === id ? { ...a, ...updates } : a
-          ),
-        }));
-      },
-
-      deleteAlarm: (id) => {
-        set((state) => ({
-          alarms: state.alarms.filter((a) => a.id !== id),
-        }));
-      },
-
-      toggleAlarm: (id) => {
-        set((state) => ({
-          alarms: state.alarms.map((a) =>
-            a.id === id ? { ...a, enabled: !a.enabled } : a
-          ),
-        }));
-      },
-
-      startTimer: (duration, label = '') => {
-        set({
-          activeTimerDuration: duration,
-          activeTimerRemaining: duration,
-          isTimerRunning: true,
-          timerLabel: label,
-        });
-      },
-
+      addWorldClock: (timezone) => set((state) => ({ worldClocks: [...state.worldClocks, timezone] })),
+      removeWorldClock: (timezone) => set((state) => ({ worldClocks: state.worldClocks.filter((t) => t !== timezone) })),
+      addAlarm: (alarm) => set((state) => ({ alarms: [...state.alarms, { ...alarm, id: Date.now().toString() }] })),
+      updateAlarm: (id, updates) => set((state) => ({ alarms: state.alarms.map((a) => a.id === id ? { ...a, ...updates } : a) })),
+      deleteAlarm: (id) => set((state) => ({ alarms: state.alarms.filter((a) => a.id !== id) })),
+      toggleAlarm: (id) => set((state) => ({ alarms: state.alarms.map((a) => a.id === id ? { ...a, enabled: !a.enabled } : a) })),
+      startTimer: (duration, label = '') => set({ activeTimerDuration: duration, activeTimerRemaining: duration, isTimerRunning: true, timerLabel: label }),
       pauseTimer: () => set({ isTimerRunning: false }),
-
       resumeTimer: () => set({ isTimerRunning: true }),
-
-      stopTimer: () =>
-        set({
-          activeTimerDuration: 0,
-          activeTimerRemaining: 0,
-          isTimerRunning: false,
-          timerLabel: '',
-        }),
-
+      stopTimer: () => set({ activeTimerDuration: 0, activeTimerRemaining: 0, isTimerRunning: false, timerLabel: '' }),
       tickTimer: () => {
         const { activeTimerRemaining, isTimerRunning } = get();
-        if (isTimerRunning && activeTimerRemaining > 0) {
-          set({ activeTimerRemaining: activeTimerRemaining - 1 });
-        } else if (isTimerRunning && activeTimerRemaining <= 0) {
-          set({ isTimerRunning: false });
-        }
+        if (isTimerRunning && activeTimerRemaining > 0) set({ activeTimerRemaining: activeTimerRemaining - 1 });
+        else if (isTimerRunning) set({ isTimerRunning: false });
       },
     }),
     {
       name: 'liquid-glass-storage',
-      storage: createJSONStorage(() => mmkvStorage),
-      partialize: (state) => ({
-        notes: state.notes,
-        worldClocks: state.worldClocks,
-        alarms: state.alarms,
-        timerPresets: state.timerPresets,
-      }),
+      storage: createJSONStorage(() => appStorage),
+      partialize: (state) => ({ notes: state.notes, worldClocks: state.worldClocks, alarms: state.alarms, timerPresets: state.timerPresets }),
     }
   )
 );
